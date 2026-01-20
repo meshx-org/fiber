@@ -1,0 +1,158 @@
+package meshx:data;
+
+interface types {
+    variant field-type {
+        text,
+        int,
+        float,
+        json,
+        relation,
+    }
+
+    record field {
+        name: option<string>,
+        physical-name: string,
+        data-type: field-type,
+        meta: list<tuple<string, string>>
+    }
+
+    record table {
+        name: option<string>,
+        physical-name: string,
+        fields: list<tuple<string, field>>,
+        meta: list<tuple<string, string>>
+    }
+
+    record schema {
+        tables: list<tuple<string, table>>
+    }
+}
+
+interface schema {
+    use types.{field-type, schema, table, field};
+
+    record declare-field-command {
+        table-name: string,
+        field: field
+    }
+
+    record declare-table-command {
+        table: table
+    }
+
+    record change-name-command {
+        from-name: string,
+        to-name: string
+    }
+
+    record change-physical-name {
+        physical-table: string,
+        field: field
+    }
+
+    variant command {
+        declare-field(declare-field-command),
+        declare-table(declare-table-command),
+    }
+
+    enum command-error {
+        unknown
+    }
+
+    run-commands: func(realm: string, commands: list<command>) -> result<_, list<command-error>>;
+    get-schema: func(realm: option<string>, draft: bool) -> schema;
+}
+
+interface datastore {
+    record subquery {
+        limit: option<u32>
+    }
+
+    variant path-segment {
+        field(string),
+        ref(u64)
+    }
+
+    // Equivalent of SQL SELECT and JOIN clause
+    record select {
+        path: list<path-segment>,
+        subquery: option<subquery>
+    }
+
+    enum where-op {
+        gt,
+        gte,
+        lt,
+        lte,
+        eq,
+        ne,
+        and,
+        or,
+        not,
+        in,
+    }
+
+    variant where-operand {
+        variable(u32),
+        ref(u32),
+        path(list<string>)
+    }
+
+    // Equivalent of SQL WHERE clause
+    record where {
+        op: where-op,
+        operands: list<where-operand>
+    }
+
+    enum sort-order {
+        asc, 
+        desc
+    }
+
+    // Equivalent of SQL ORDER BY clause
+    type order-by = tuple<list<string>, sort-order>;
+
+    variant value {
+        none,
+        text(string),
+        text-array(list<string>),
+        int(s64),
+        float(f64),
+        %bool(bool),
+        nested(u64)
+    }
+
+    type partial-row = list<value>;
+    type partial-rows = list<partial-row>;
+
+    record data {
+        rows: partial-rows,
+        nested: list<tuple<u64, partial-rows>>
+    }
+
+    // Send a query to component for processing
+    query: func(table: string, select: list<select>, where: list<where>, order-by: list<order-by>, limit: option<u32>, offset: option<u32>) -> data;
+}
+
+// While processing data, sometimes a component may need to request
+// information about the system it's running on. The component isn't
+// allowed to access this information directly, so it can request it
+// from the provider.
+interface system-info {
+    enum kind {
+        OS,
+        ARCH,
+    }
+
+    // Request information about the system the provider is running on
+    request-info: func(kind: kind) -> string;
+
+    // Example export to call from the provider for testing
+    call: func() -> string;
+}
+
+world provider {
+    import datastore;
+    import schema;
+    export system-info;
+}

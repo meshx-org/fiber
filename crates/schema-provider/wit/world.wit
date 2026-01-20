@@ -1,0 +1,12 @@
+package meshx:datastore;
+
+interface declarative {
+  
+}
+
+world component {
+  // Import logging for processing data
+  import wasi:logging/logging@0.1.0-draft;
+
+  export meshx:data/schema;
+}

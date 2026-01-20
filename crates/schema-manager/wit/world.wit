@@ -1,0 +1,10 @@
+package meshx:custom;
+
+world component {
+  // Import logging for processing data
+  import wasi:logging/logging@0.1.0-draft;
+  import wasi:keyvalue/store@0.2.0-draft;
+  import meshx:data/types;
+
+  export meshx:data/schema;
+}

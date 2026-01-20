@@ -1,0 +1,9 @@
+[logging]
+url = "https://github.com/WebAssembly/wasi-logging/archive/d31c41d0d9eed81aabe02333d0025d42acf3fb75.tar.gz"
+sha256 = "ad81d8b7f7a8ceb729cf551f1d24586f0de9560a43eea57a9bb031d2175804e1"
+sha512 = "1687ad9a02ab3e689443e67d1a0605f58fc5dea828d2e4d2c7825c6002714fac9bd4289b1a68b61a37dcca6c3b421f4c8ed4b1e6cc29f6460e0913cf1bf11c04"
+
+[schema]
+path = "../../datastore-http/wit"
+sha256 = "7f4cf34f0b12e581f56cbed161b5b81f3bcc33ac5d5469a90cc77a6a172d3957"
+sha512 = "a3b3cb4bade6dc79ed857daf8af57ec07ecd07249ffe4c672d7d4f279610022ace8dd17818a2e5fb3bda50e7b50d3b70ee8c1276a16b4391c4e5bb06c2317656"

@@ -1,0 +1,20 @@
+[package]
+name = "data"
+version = "0.1.0"
+edition = "2024"
+
+[badges.maintenance]
+status = "actively-developed"
+
+[dependencies]
+anyhow = { workspace = true }
+cedar-policy = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+sqlparser = { workspace = true }
+sqlx = { workspace = true }
+thiserror = { workspace = true }
+tokio = { workspace = true }
+
+[dev-dependencies]
+tokio = { workspace = true, features = ["rt-multi-thread", "macros"] }
