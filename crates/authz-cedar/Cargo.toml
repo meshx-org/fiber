@@ -1,0 +1,16 @@
+[package]
+name = "authz-cedar"
+version = "0.1.0-draft"
+edition = "2024"
+
+[badges.maintenance]
+status = "actively-developed"
+
+[dependencies]
+wasmtime = { workspace = true }
+wash-runtime = { workspace = true }
+async-trait = { workspace = true }
+tokio = { workspace = true }
+anyhow = { workspace = true }
+cedar-policy = { workspace = true }
+tracing = { workspace = true }

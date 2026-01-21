@@ -1,0 +1,5 @@
+package root:component;
+
+world authz {
+  import meshx:authz/engine@0.1.0-draft;
+}

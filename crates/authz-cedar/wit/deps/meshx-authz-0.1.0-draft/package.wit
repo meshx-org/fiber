@@ -1,0 +1,20 @@
+package meshx:authz@0.1.0-draft;
+
+interface engine {
+    variant error {
+        other(string),
+        unauthorized,
+        forbidden,
+    }
+
+    record entity {
+        %type: string,
+        id: string,
+    }
+
+    resource context {
+        init: static func() -> own<context>;
+    }
+
+    validate: func(ctx: borrow<context>, action: entity, %resource: entity) -> result<bool, error>;
+}

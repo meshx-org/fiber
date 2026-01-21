@@ -21,6 +21,8 @@
 [![Last Commit](https://img.shields.io/github/last-commit/meshx-org/fiber)](https://github.com/meshx-org/templates)
 </div>
 
+> [!WARNING]  
+> Highly WIP - Broken builds on main are common
 
 ## License
 

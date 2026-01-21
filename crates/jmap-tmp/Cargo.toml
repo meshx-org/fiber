@@ -1,0 +1,18 @@
+[package]
+name = "jmap-tmp"
+edition = "2024"
+version = "0.1.0"
+
+[lib]
+crate-type = ["cdylib"]
+
+[dependencies]
+wstd = { workspace = true }
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+
+[target.wasm32-unknown-unknown.release]
+lto = true
+opt-level = "s"
+codegen-units = 1
+panic = "abort"

@@ -3,6 +3,8 @@ members = [
   #"crates/flow-compiler",
   #"crates/flow-component",
   #"crates/flow-runtime",
+  "crates/authz-cedar",
+  "crates/jmap-tmp",
   "crates/data",
   "crates/schema-manager",
   "crates/schema-provider",
@@ -12,16 +14,17 @@ resolver = "2"
 [workspace.dependencies]
 anyhow = "1"
 cedar-policy = "4"
-itertools = "0.12"
+itertools = "0.14"
 murmur3 = "0.5"
 serde = {version = "1", features = ["derive"]}
-serde_cbor = "0.11"
+serde_cbor = "0"
 serde_json = "1"
 sqlparser = "0.53"
 sqlx = {version = "0.8", features = ["postgres", "runtime-tokio-rustls", "macros"]}
 thiserror = "2"
-tokio = {version = "1.36", features = ["macros", "rt-multi-thread"]}
-wit-bindgen = "0.51"
-wit-bindgen-rt = {version = "0.44", features = ["bitflags"]}
-wit-bindgen-wrpc = "0.10.0"
-wstd = {version = "0.6.5"}
+tokio = {version = "1", features = ["macros", "rt-multi-thread"]}
+wstd = {version = "0.6"}
+wasmtime = "38.0"
+wash-runtime = { git = "https://github.com/wasmcloud/wash.git", branch = "main" }
+async-trait = "0.1"
+tracing = "0.1"

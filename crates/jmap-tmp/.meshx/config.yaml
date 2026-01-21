@@ -1,0 +1,3 @@
+build:
+  command: cargo build --target wasm32-unknown-unknown --release
+  component_path: ../../target/wasm32-unknown-unknown/release/jmap_tmp.wasm

@@ -1,0 +1,5 @@
+package meshx:jmap-tmp;
+
+world jmap-tmp {
+   export wasi:http/incoming-handler@0.2.4;
+}
