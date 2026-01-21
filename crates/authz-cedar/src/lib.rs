@@ -53,7 +53,7 @@ impl<'a> bindings::meshx::authz::engine::Host for ActiveCtx<'a> {
         action: Entity,
         resource: Entity,
     ) -> anyhow::Result<Result<bool, EngineError>> {
-        info!("validate");
+        debug!("id= {} component_id= {}", self.id, self.component_id);
         
         let Some(plugin) = self.get_plugin::<AuthzEngine>(MESHX_AUTHZ_ID) else {
             return Ok(Err(EngineError::Other(
