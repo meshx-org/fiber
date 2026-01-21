@@ -12,17 +12,18 @@ use wash_runtime::{
     wit::{WitInterface, WitWorld},
 };
 
-use bindings::meshx::authz::engine::{Entity, Error as EngineError};
-use cedar_policy::{Authorizer, Context, Decision, Entities, EntityId, EntityTypeName, EntityUid, PolicySet, Request};
+use bindings::meshx::authz::engine::{self, Error as EngineError};
+use cedar_policy::{
+    Authorizer, Context, Decision, Entities, Entity, EntityId, EntityTypeName, EntityUid,
+    PolicySet, Request,
+};
 use std::str::FromStr;
 use wasmtime::component::Resource;
 
 /// Context data for authorization
 #[derive(Debug, Clone)]
 pub struct ContextData {
-    // Add fields as needed for your authorization context
-    // For now, just a placeholder
-    _placeholder: (),
+    policies: PolicySet,
 }
 
 mod bindings {
@@ -41,8 +42,6 @@ const MESHX_AUTHZ_ID: &str = "meshx:authz@0.1.0-draft";
 #[derive(Clone, Default)]
 pub struct AuthzEngine {
     authorizer: Authorizer,
-    /// Storage for all entities, keyed by workload ID, then entity type, then entity ID
-    storage: Arc<RwLock<HashMap<String, HashMap<String, HashMap<String, u32>>>>>,
 }
 
 // Implementation for the store interface
@@ -50,11 +49,11 @@ impl<'a> bindings::meshx::authz::engine::Host for ActiveCtx<'a> {
     async fn validate(
         &mut self,
         context: Resource<bindings::meshx::authz::engine::Context>,
-        action: Entity,
-        resource: Entity,
+        action: engine::Entity,
+        resource: engine::Entity,
     ) -> anyhow::Result<Result<bool, EngineError>> {
         debug!("id= {} component_id= {}", self.id, self.component_id);
-        
+
         let Some(plugin) = self.get_plugin::<AuthzEngine>(MESHX_AUTHZ_ID) else {
             return Ok(Err(EngineError::Other(
                 "authz engine plugin not available".to_string(),
@@ -77,32 +76,40 @@ impl<'a> bindings::meshx::authz::engine::Host for ActiveCtx<'a> {
 
         let request = Request::new(p, a, r, c, None)?;
 
-        // create a policy
-        let s = r#"
-permit (
-  principal == User::"alice",
-  action == Action::"view",
-  resource == Album::"trip"
-)
-when { principal.ip_addr.isIpv4() };
-"#;
-        let policy = PolicySet::from_str(s).expect("policy error");
-
         // create entities
-        let e = r#"[
-    {
-        "uid": {"type":"User","id":"alice"},
-        "attrs": {
-            "age":19,
-            "ip_addr":{"__extn":{"fn":"ip", "arg":"10.0.1.101"}}
-        },
-        "parents": []
-    }
-]"#;
-        let entities = Entities::from_json_str(e, None).expect("entity error");
+        let entities = vec![
+            Entity::new(
+                EntityUid::from_type_name_and_id(
+                    EntityTypeName::from_str("User")?,
+                    EntityId::from_str("alice")?,
+                ),
+                HashMap::new(),
+                HashSet::new(),
+            )?,
+            Entity::new(
+                EntityUid::from_type_name_and_id(
+                    EntityTypeName::from_str("Action")?,
+                    EntityId::from_str("view")?,
+                ),
+                HashMap::new(),
+                HashSet::new(),
+            )?,
+            Entity::new(
+                EntityUid::from_type_name_and_id(
+                    EntityTypeName::from_str("Album")?,
+                    EntityId::from_str("trip")?,
+                ),
+                HashMap::new(),
+                HashSet::new(),
+            )?,
+        ];
+
+        let context_data = self.table.get::<ContextData>(&context)?;
+
+        let entities = Entities::from_entities(entities, None).expect("entity error");
         let response = plugin
             .authorizer
-            .is_authorized(&request, &policy, &entities);
+            .is_authorized(&request, &context_data.policies, &entities);
 
         match response.decision() {
             Decision::Allow => Ok(Ok(true)),
@@ -114,7 +121,18 @@ when { principal.ip_addr.isIpv4() };
 // Resource host trait implementations for context
 impl<'a> bindings::meshx::authz::engine::HostContext for ActiveCtx<'a> {
     async fn init(&mut self) -> anyhow::Result<Resource<ContextData>> {
-        let context_data = ContextData { _placeholder: () };
+        // create a policy
+        let s = r#"
+permit (
+  principal == User::"alice",
+  action == Action::"view",
+  resource == Album::"trip"
+)
+when { principal.ip_addr.isIpv4() };
+"#;
+        let policies = PolicySet::from_str(s).expect("policy error");
+
+        let context_data = ContextData { policies };
         let resource = self.table.push(context_data)?;
         Ok(resource)
     }
