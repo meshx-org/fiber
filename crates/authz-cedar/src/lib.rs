@@ -2,7 +2,7 @@ use std::collections::{HashMap, HashSet};
 use std::sync::Arc;
 
 use tokio::sync::RwLock;
-use tracing::info;
+use tracing::{debug, info};
 use wash_runtime::{
     engine::{
         ctx::{ActiveCtx, SharedCtx, extract_active_ctx},
