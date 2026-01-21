@@ -1,0 +1,29 @@
+[package]
+authors = ["The MeshX Team"]
+categories = ["wasm", "http"]
+edition = "2024"
+license = "Apache-2.0"
+name = "http-server"
+publish = false
+repository = "https://github.com/meshx-org/fiber"
+version = "0.1.0"
+
+[lib]
+path = "src/lib.rs"
+
+[lints]
+workspace = true
+
+[dependencies]
+authz-cedar = {workspace = true}
+anyhow = {workspace = true}
+async-trait = {workspace = true}
+hyper = {workspace = true, features = ["server", "http1"]}
+rustls = {workspace = true, features = ["std", "tls12"]}
+rustls-pemfile = {workspace = true}
+tokio = {workspace = true, features = ["sync", "net", "macros"]}
+tokio-rustls = {workspace = true}
+tracing = {workspace = true}
+wash-runtime = {workspace = true}
+wasmtime = {workspace = true}
+wasmtime-wasi-http = {workspace = true, features = ["default-send-request"]}

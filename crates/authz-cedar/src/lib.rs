@@ -2,7 +2,7 @@ use std::collections::{HashMap, HashSet};
 use std::sync::Arc;
 
 use tokio::sync::RwLock;
-use tracing::{debug, info};
+use tracing::debug;
 use wash_runtime::{
     engine::{
         ctx::{ActiveCtx, SharedCtx, extract_active_ctx},
@@ -26,6 +26,15 @@ pub struct ContextData {
     policies: PolicySet,
 }
 
+/// Per-request principal information parsed from headers
+#[derive(Debug, Clone)]
+pub struct RequestPrincipal {
+    /// User subject identifier (from x-user-sub header)
+    pub sub: String,
+    /// User email (from x-user-email header)
+    pub email: Option<String>,
+}
+
 mod bindings {
     wasmtime::component::bindgen!({
         world: "authz",
@@ -36,12 +45,40 @@ mod bindings {
     });
 }
 
-const MESHX_AUTHZ_ID: &str = "meshx:authz@0.1.0-draft";
+pub const MESHX_AUTHZ_ID: &str = "meshx:authz@0.1.0-draft";
 
 /// Cedar authorization engine plugin
 #[derive(Clone, Default)]
 pub struct AuthzEngine {
     authorizer: Authorizer,
+    /// Per-request principal storage, keyed by active_ctx.id
+    request_principals: Arc<RwLock<HashMap<String, RequestPrincipal>>>,
+}
+
+impl AuthzEngine {
+    /// Set the principal for a request (call at start of request handling)
+    pub async fn set_request_principal(&self, request_id: &str, principal: RequestPrincipal) {
+        debug!(request_id = %request_id, sub = %principal.sub, "Setting request principal");
+        self.request_principals
+            .write()
+            .await
+            .insert(request_id.to_string(), principal);
+    }
+
+    /// Get the principal for a request
+    pub async fn get_request_principal(&self, request_id: &str) -> Option<RequestPrincipal> {
+        self.request_principals
+            .read()
+            .await
+            .get(request_id)
+            .cloned()
+    }
+
+    /// Clear the principal after request completes (call at end of request handling)
+    pub async fn clear_request_principal(&self, request_id: &str) {
+        debug!(request_id = %request_id, "Clearing request principal");
+        self.request_principals.write().await.remove(request_id);
+    }
 }
 
 // Implementation for the store interface
@@ -49,8 +86,8 @@ impl<'a> bindings::meshx::authz::engine::Host for ActiveCtx<'a> {
     async fn validate(
         &mut self,
         context: Resource<bindings::meshx::authz::engine::Context>,
-        action: engine::Entity,
-        resource: engine::Entity,
+        _action: engine::Entity,
+        _resource: engine::Entity,
     ) -> anyhow::Result<Result<bool, EngineError>> {
         debug!("id= {} component_id= {}", self.id, self.component_id);
 
@@ -60,7 +97,15 @@ impl<'a> bindings::meshx::authz::engine::Host for ActiveCtx<'a> {
             )));
         };
 
-        let p_eid = EntityId::from_str("alice")?;
+        // Get the principal from the request context using self.id
+        let Some(request_principal) = plugin.get_request_principal(&self.id).await else {
+            return Ok(Err(EngineError::Other(
+                "no principal context for request".to_string(),
+            )));
+        };
+
+        // Build principal entity from the request context
+        let p_eid = EntityId::from_str(&request_principal.sub)?;
         let p_name: EntityTypeName = EntityTypeName::from_str("User")?;
         let p = EntityUid::from_type_name_and_id(p_name, p_eid);
 
@@ -74,15 +119,12 @@ impl<'a> bindings::meshx::authz::engine::Host for ActiveCtx<'a> {
 
         let c = Context::empty();
 
-        let request = Request::new(p, a, r, c, None)?;
+        let request = Request::new(p.clone(), a, r, c, None)?;
 
         // create entities
         let entities = vec![
             Entity::new(
-                EntityUid::from_type_name_and_id(
-                    EntityTypeName::from_str("User")?,
-                    EntityId::from_str("alice")?,
-                ),
+                p, // Use the actual principal entity
                 HashMap::new(),
                 HashSet::new(),
             )?,
