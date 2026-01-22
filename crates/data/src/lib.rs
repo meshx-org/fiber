@@ -23,6 +23,7 @@ use bindings::meshx::data::types;
 
 pub const MESHX_DATA_ID: &str = "meshx:data@0.1.0-draft";
 
+#[derive(Clone, Default)]
 pub struct DatastorePlugin {
     tracker: Arc<RwLock<WorkloadTracker<(), ()>>>,
 }
