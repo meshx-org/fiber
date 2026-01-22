@@ -15,7 +15,7 @@ path = "src/lib.rs"
 workspace = true
 
 [dependencies]
-authz-cedar = {workspace = true}
+fiber-authz-cedar = {workspace = true}
 anyhow = {workspace = true}
 async-trait = {workspace = true}
 hyper = {workspace = true, features = ["server", "http1"]}

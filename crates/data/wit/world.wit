@@ -1,0 +1,6 @@
+package root:component;
+
+world data {
+  import meshx:data/types@0.1.0-draft;
+  export meshx:data/schema@0.1.0-draft;
+}

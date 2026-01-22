@@ -1,0 +1,34 @@
+package meshx:data@0.1.0-draft;
+
+interface types {
+    record data-schema {
+        tables: list<tuple<string, table>>
+    }
+
+    record table {
+        name: option<string>,
+        physical-name: string,
+        fields: list<tuple<string, field>>,
+        meta: list<tuple<string, string>>
+    }
+
+    record field {
+        name: option<string>,
+        physical-name: string,
+        data-type: field-type,
+        meta: list<tuple<string, string>>
+    }
+
+    variant field-type {
+        text,
+        int,
+        float,
+        json,
+        relation,
+    }
+}
+
+interface schema {
+    use types.{data-schema};
+    get: func() -> data-schema;
+}
