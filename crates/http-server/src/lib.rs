@@ -30,9 +30,11 @@ use hyper::server::conn::http1;
 use tokio::net::TcpListener;
 use tokio::task::JoinHandle;
 use tracing::{debug, error, info, warn};
-use wash_runtime::engine::ctx::SharedCtx;
-use wash_runtime::engine::workload::ResolvedWorkload;
-use wash_runtime::wit::WitInterface;
+use wash_runtime::{
+    engine::{ctx::SharedCtx, workload::ResolvedWorkload},
+    host::http::{HostHandler, Router},
+    wit::WitInterface,
+};
 use wasmtime::Store;
 use wasmtime::component::InstancePre;
 use wasmtime_wasi_http::{
@@ -47,37 +49,6 @@ use rustls::{ServerConfig, pki_types::CertificateDer};
 use rustls_pemfile::{certs, private_key};
 use tokio::sync::{RwLock, mpsc};
 use tokio_rustls::TlsAcceptor;
-
-/// Trait defining the routing behavior for HTTP requests
-/// Allows for custom routing logic based on workload IDs and requests
-/// Use this trait to implement custom routing strategies with the default HTTP Extension
-#[async_trait::async_trait]
-pub trait Router: Send + Sync + 'static {
-    /// Register a workload that has been resolved
-    /// and is guaranteed to be available for handling requests
-    async fn on_workload_resolved(
-        &self,
-        resolved_handle: &ResolvedWorkload,
-        component_id: &str,
-    ) -> anyhow::Result<()>;
-
-    /// Unregister a workload that is being stopped
-    async fn on_workload_unbind(&self, workload_id: &str) -> anyhow::Result<()>;
-
-    /// Determine if the outgoing request is allowed
-    fn allow_outgoing_request(
-        &self,
-        workload_id: &str,
-        request: &hyper::Request<wasmtime_wasi_http::body::HyperOutgoingBody>,
-        config: &wasmtime_wasi_http::types::OutgoingRequestConfig,
-    ) -> anyhow::Result<()>;
-
-    /// Pick a workload ID based on the incoming request
-    fn route_incoming_request(
-        &self,
-        req: &hyper::Request<hyper::body::Incoming>,
-    ) -> anyhow::Result<String>;
-}
 
 /// Router that routes requests by 'Host' header, configured via WitInterface config
 #[derive(Default)]
@@ -170,72 +141,6 @@ impl Router for DynamicRouter {
 
             Ok(workload_id.clone())
         })
-    }
-}
-
-/// Trait defining the behavior of a Host HTTP Extension
-/// Allows for custom handling of incoming and outgoing HTTP requests
-/// Use this trait to implement custom HTTP server transport
-#[async_trait::async_trait]
-pub trait HostHandler: Send + Sync + 'static {
-    async fn start(&self) -> anyhow::Result<()>;
-    async fn stop(&self) -> anyhow::Result<()>;
-
-    async fn on_workload_resolved(
-        &self,
-        resolved_handle: &ResolvedWorkload,
-        component_id: &str,
-    ) -> anyhow::Result<()>;
-    async fn on_workload_unbind(&self, workload_id: &str) -> anyhow::Result<()>;
-
-    fn outgoing_request(
-        &self,
-        workload_id: &str,
-        request: hyper::Request<wasmtime_wasi_http::body::HyperOutgoingBody>,
-        config: wasmtime_wasi_http::types::OutgoingRequestConfig,
-    ) -> wasmtime_wasi_http::HttpResult<wasmtime_wasi_http::types::HostFutureIncomingResponse>;
-}
-
-impl std::fmt::Debug for dyn HostHandler {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.debug_struct("HostHandler").finish()
-    }
-}
-
-#[derive(Default)]
-pub struct NullServer {}
-
-#[async_trait::async_trait]
-impl HostHandler for NullServer {
-    async fn start(&self) -> anyhow::Result<()> {
-        Ok(())
-    }
-
-    async fn stop(&self) -> anyhow::Result<()> {
-        Ok(())
-    }
-
-    async fn on_workload_resolved(
-        &self,
-        _resolved_handle: &ResolvedWorkload,
-        _component_id: &str,
-    ) -> anyhow::Result<()> {
-        Ok(())
-    }
-
-    async fn on_workload_unbind(&self, _workload_id: &str) -> anyhow::Result<()> {
-        Ok(())
-    }
-
-    fn outgoing_request(
-        &self,
-        _workload_id: &str,
-        _request: hyper::Request<wasmtime_wasi_http::body::HyperOutgoingBody>,
-        _config: wasmtime_wasi_http::types::OutgoingRequestConfig,
-    ) -> wasmtime_wasi_http::HttpResult<wasmtime_wasi_http::types::HostFutureIncomingResponse> {
-        Err(wasmtime_wasi_http::HttpError::trap(anyhow::anyhow!(
-            "http client not available"
-        )))
     }
 }
 
