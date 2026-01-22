@@ -15,7 +15,7 @@ use wash_runtime::{
 use bindings::meshx::authz::engine::{self, Error as EngineError};
 use cedar_policy::{
     Authorizer, Context, Decision, Entities, Entity, EntityId, EntityTypeName, EntityUid,
-    PolicySet, Request,
+    PolicySet, Request, RestrictedExpression,
 };
 use std::str::FromStr;
 use wasmtime::component::Resource;
@@ -33,6 +33,8 @@ pub struct RequestPrincipal {
     pub sub: String,
     /// User email (from x-user-email header)
     pub email: Option<String>,
+    /// Client IP address from the connection
+    pub ip_addr: std::net::IpAddr,
 }
 
 mod bindings {
@@ -121,11 +123,17 @@ impl<'a> bindings::meshx::authz::engine::Host for ActiveCtx<'a> {
 
         let request = Request::new(p.clone(), a, r, c, None)?;
 
+        // Build attributes for the principal entity
+        let mut principal_attrs = HashMap::new();
+        // Add IP address as a Cedar extension value
+        let ip_expr = RestrictedExpression::new_ip(request_principal.ip_addr.to_string());
+        principal_attrs.insert("ip_addr".to_string(), ip_expr);
+
         // create entities
         let entities = vec![
             Entity::new(
                 p, // Use the actual principal entity
-                HashMap::new(),
+                principal_attrs,
                 HashSet::new(),
             )?,
             Entity::new(

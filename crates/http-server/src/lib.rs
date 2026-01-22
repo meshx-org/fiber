@@ -20,7 +20,7 @@
 
 use std::{
     collections::{HashMap, HashSet},
-    net::SocketAddr,
+    net::{IpAddr, SocketAddr},
     path::Path,
     sync::Arc,
 };
@@ -79,7 +79,7 @@ impl Router for DynamicRouter {
             .config
             .get("host")
             .cloned()
-            .context("No host header found")?;
+            .context("No host config was provided for the incoming-handler interface")?;
 
         {
             let mut lock = self.workload_to_host.write().await;
@@ -345,12 +345,13 @@ async fn run_http_server<T: Router>(
                         let handles_clone = workload_handles.clone();
                         let tls_acceptor_clone = tls_acceptor.clone();
                         let handler_clone = handler.clone();
+                        let client_ip = client_addr.ip();
                         tokio::spawn(async move {
                             let service = hyper::service::service_fn(move |req| {
                                 let handles = handles_clone.clone();
                                 let handler = handler_clone.clone();
                                 async move {
-                                    handle_http_request(handler, req, handles).await
+                                    handle_http_request(handler, req, handles, client_ip).await
                                 }
                             });
 
@@ -407,6 +408,7 @@ async fn handle_http_request<T: Router>(
     handler: Arc<T>,
     req: hyper::Request<hyper::body::Incoming>,
     workload_handles: WorkloadHandles,
+    client_ip: IpAddr,
 ) -> Result<hyper::Response<HyperOutgoingBody>, hyper::Error> {
     let method = req.method().clone();
     let uri = req.uri().clone();
@@ -433,7 +435,9 @@ async fn handle_http_request<T: Router>(
 
     let response = match workload_handle {
         Some((handle, instance_pre, component_id)) => {
-            match invoke_component_handler(handle, instance_pre, &component_id, req).await {
+            match invoke_component_handler(handle, instance_pre, &component_id, req, client_ip)
+                .await
+            {
                 Ok(resp) => resp,
                 Err(e) => {
                     error!(err = ?e, host = %workload_id, "failed to invoke component");
@@ -458,16 +462,18 @@ async fn invoke_component_handler(
     instance_pre: InstancePre<SharedCtx>,
     component_id: &str,
     req: hyper::Request<hyper::body::Incoming>,
+    client_ip: IpAddr,
 ) -> anyhow::Result<hyper::Response<HyperOutgoingBody>> {
     // Create a new store for this request with plugin contexts
     let store = workload_handle.new_store(component_id).await?;
 
-    handle_component_request(store, instance_pre, req).await
+    handle_component_request(store, instance_pre, req, client_ip).await
 }
 
 /// Parse the request principal from headers (x-user-sub and x-user-email)
 fn parse_principal_from_request(
     req: &hyper::Request<hyper::body::Incoming>,
+    client_ip: IpAddr,
 ) -> Option<RequestPrincipal> {
     let sub = req
         .headers()
@@ -481,7 +487,11 @@ fn parse_principal_from_request(
         .and_then(|h| h.to_str().ok())
         .map(|s| s.to_string());
 
-    Some(RequestPrincipal { sub, email })
+    Some(RequestPrincipal {
+        sub,
+        email,
+        ip_addr: client_ip,
+    })
 }
 
 /// Handle a component request using WASI HTTP
@@ -489,6 +499,7 @@ pub async fn handle_component_request(
     mut store: Store<SharedCtx>,
     pre: InstancePre<SharedCtx>,
     req: hyper::Request<hyper::body::Incoming>,
+    client_ip: IpAddr,
 ) -> anyhow::Result<hyper::Response<HyperOutgoingBody>> {
     let plugin = store
         .data()
@@ -500,11 +511,12 @@ pub async fn handle_component_request(
 
     // Parse principal from headers and inject into plugin context
     if let Some(ref plugin) = plugin {
-        if let Some(principal) = parse_principal_from_request(&req) {
+        if let Some(principal) = parse_principal_from_request(&req, client_ip) {
             debug!(
                 request_id = %request_id,
                 sub = %principal.sub,
                 email = ?principal.email,
+                ip_addr = %principal.ip_addr,
                 "Injecting request principal"
             );
             plugin.set_request_principal(&request_id, principal).await;
