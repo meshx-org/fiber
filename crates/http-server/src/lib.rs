@@ -44,7 +44,7 @@ use wasmtime_wasi_http::{
     io::TokioIo,
 };
 
-use authz_cedar::{AuthzEngine, MESHX_AUTHZ_ID, RequestPrincipal};
+use fiber_authz_cedar::{AuthzEngine, MESHX_AUTHZ_ID, RequestPrincipal};
 use rustls::{ServerConfig, pki_types::CertificateDer};
 use rustls_pemfile::{certs, private_key};
 use tokio::sync::{RwLock, mpsc};
