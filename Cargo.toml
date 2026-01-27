@@ -45,6 +45,6 @@ tokio = {version = "1", features = ["macros", "rt-multi-thread"]}
 tokio-rustls = {version = "0.26", default-features = false}
 tracing = "0.1"
 wash-runtime = {git = "https://github.com/wasmcloud/wash.git", branch = "main"}
-wasmtime = {version = "38", default-features = false}
+wasmtime = {version = "40", default-features = false}
 wasmtime-wasi-http = {version = "38", default-features = false}
 wstd = {version = "0.6"}
